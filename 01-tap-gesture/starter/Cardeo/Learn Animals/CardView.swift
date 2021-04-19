@@ -32,39 +32,86 @@
 
 import SwiftUI
 
+enum DiscardedDirection {
+    case left, right
+}
+
 struct CardView: View {
-  @Binding var score: Int
-  @Binding var deck: [String]
-  
-  let animalName: String
-  let rotation = Angle(degrees: [0, 3.5, -10, -4.5, 6].randomElement()!)
-  
-  var body: some View {
-    ZStack {
-      Rectangle()
-        .foregroundColor(.red)
-        .frame(width: 320, height: 210)
-        .cornerRadius(12)
-      VStack {
-        Image(animalName)
-          .resizable()
-          .scaledToFit()
-        Text(animalName)
-          .font(.largeTitle)
-          .foregroundColor(.white)
-        Spacer()
-      }
+    @Binding var score: Int
+    @Binding var deck: [String]
+    
+    @State private var revealed = false
+    @State private var offset: CGSize = .zero
+    
+    
+    let animalName: String
+    let rotation = Angle(degrees: [0, 3.5, -10, -4.5, 6].randomElement()!)
+    
+    func drag(animal: String, direction: DiscardedDirection) -> Void {
+        switch direction {
+        case .left: self.offset = .init(width: -1000, height: 0)
+        case .right: self.offset = .init(width: 1000, height: 0)
+        }
+        
+        if animal == deck.first {
+            deck.removeAll()
+        }
+        
     }
-    .rotationEffect(rotation)
-    .shadow(radius: 6)
-    .frame(width: 320, height: 210)
-    .animation(.spring())
-  }
+    
+    var body: some View {
+        let drag = DragGesture()
+            .onChanged({
+                self.offset = $0.translation
+            })
+            .onEnded({
+                switch $0.translation.width {
+                case let width where width < -100:
+                    self.drag(animal: self.animalName, direction: .left)
+                case let width where width > 100:
+                    self.drag(animal: self.animalName, direction: .right)
+                default:
+                    self.offset = .zero
+                }
+            })
+        
+        return ZStack {
+            Rectangle()
+                .foregroundColor(.red)
+                .frame(width: 320, height: 210)
+                .cornerRadius(12)
+            VStack {
+                Image(animalName)
+                    .resizable()
+                    .scaledToFit()
+                if self.revealed {
+                    Text(animalName)
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
+                }
+                
+                Spacer()
+            }
+        }
+        .rotationEffect(rotation)
+        .shadow(radius: 6)
+        .frame(width: 320, height: 210)
+        .offset(self.offset)
+        .animation(.spring())
+        .gesture(drag)
+        .gesture(TapGesture(count: 2)
+                    .onEnded({
+                        withAnimation(.easeIn) {
+                            self.revealed.toggle()
+                        }
+                    })
+        )
+    }
 }
 
 
 struct CardView_Previews: PreviewProvider {
-  static var previews: some View {
-    CardView(score: .constant(0), deck: .constant(starterAnimals), animalName: "Pallas Cat")
-  }
+    static var previews: some View {
+        CardView(score: .constant(0), deck: .constant(starterAnimals), animalName: "Pallas Cat")
+    }
 }
